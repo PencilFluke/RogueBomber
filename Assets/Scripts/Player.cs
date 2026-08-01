@@ -1,7 +1,8 @@
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 
-public class PlayerController : MonoBehaviour
+public class Player : MonoBehaviour
 {
     [Header("Player Inputs")]
     public InputAction moveAction;
@@ -13,7 +14,8 @@ public class PlayerController : MonoBehaviour
     public float maxStamina = 100.0f;
     private float health;
     private float stamina;
-    public float moveSpeed = 10.0f;
+    public float moveSpeed = 1000.0f;
+    public float rotateSpeed = 600.0f;
     public float sprintSpeedMultiplier = 1.5f;
     public bool isSprinting = false;
 
@@ -34,7 +36,9 @@ public class PlayerController : MonoBehaviour
     {
         float speed = IsPlayerSprinting() ? moveSpeed * sprintSpeedMultiplier : moveSpeed;
 
-        playerRigidBody.AddForce(GetDirection() * speed, ForceMode.Force);
+
+        playerRigidBody.AddForce(GetDirection() * speed * Time.deltaTime, ForceMode.VelocityChange);
+        transform.forward = Vector3.Slerp(transform.forward, GetDirection(), Time.deltaTime * rotateSpeed);
         ConstrainPositionToXZBounds(transform.position, screenBoundsX, screenBoundsZ);
     }
 
@@ -59,8 +63,8 @@ public class PlayerController : MonoBehaviour
     //Movement
     private Vector3 GetDirection()
     {
-        Vector2 moveValue = moveAction.ReadValue<Vector2>();
-        return new Vector3(moveValue.x, 0.0f, moveValue.y);
+        Vector2 moveDirection = moveAction.ReadValue<Vector2>();
+        return new Vector3(moveDirection.x, 0.0f, moveDirection.y);
     }
 
     private bool IsPlayerSprinting()
