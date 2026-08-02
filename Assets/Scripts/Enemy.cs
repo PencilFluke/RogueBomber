@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 public class Enemy : MonoBehaviour
@@ -11,7 +12,15 @@ public class Enemy : MonoBehaviour
     private float health;
     private float maxHealth = 100f;
     private bool isDead;
+    [SerializeField] private List<Drop> drops = new List<Drop>();
 
+    [Serializable]
+    public class Drop
+    {
+        public GameObject prefab;
+        public int amount = 1;
+
+    }
 
     void Awake()
     {
@@ -70,11 +79,21 @@ public class Enemy : MonoBehaviour
     {
         Debug.Log("Enemy Died");
         Destroy(gameObject);
+        if (drops.Count > 0) DropItems();
+
     }
 
     void DropItems()
     {
-
+        foreach (Drop drop in drops)
+        {
+            for (int i = 0; i < drop.amount; i++)
+            {
+                float elevation = UnityEngine.Random.Range(0f, 0.5f);
+                Vector3 randomPoint = LocationHelper.GetRandomPointInXZCircle(1, 3, elevation);
+                Instantiate(drop.prefab, transform.position + randomPoint, Quaternion.identity);
+            }
+        }
     }
 
 }
