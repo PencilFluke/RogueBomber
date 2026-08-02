@@ -1,5 +1,4 @@
 using UnityEngine;
-using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 
 public class Player : MonoBehaviour
@@ -7,6 +6,7 @@ public class Player : MonoBehaviour
     [Header("Player Inputs")]
     public InputAction moveAction;
     public InputAction sprintAction;
+    public InputAction fireAction;
 
     [Header("Stats")]
 
@@ -18,6 +18,9 @@ public class Player : MonoBehaviour
     public float rotateSpeed = 600.0f;
     public float sprintSpeedMultiplier = 1.5f;
     public bool isSprinting = false;
+    [SerializeField] private GameObject explosive;
+    [SerializeField] private float explosiveFireCooldown = 1f;
+    private bool canFire = true;
 
     //Components
     private Rigidbody playerRigidBody;
@@ -34,14 +37,35 @@ public class Player : MonoBehaviour
 
     void FixedUpdate()
     {
+        Move();
+
+        if (fireAction.triggered && canFire)
+        {
+            SpawnExplosive();
+        }
+    }
+
+    private void Move()
+    {
         float speed = IsPlayerSprinting() ? moveSpeed * sprintSpeedMultiplier : moveSpeed;
-
-
         playerRigidBody.AddForce(GetDirection() * speed * Time.deltaTime, ForceMode.VelocityChange);
         transform.forward = Vector3.Slerp(transform.forward, GetDirection(), Time.deltaTime * rotateSpeed);
         ConstrainPositionToXZBounds(transform.position, screenBoundsX, screenBoundsZ);
     }
 
+    private void SpawnExplosive()
+    {
+        Vector3 spawnPosition = (-transform.forward * 1f) + Vector3.up;
+        Instantiate(explosive, transform.position + spawnPosition, Quaternion.identity);
+        Debug.DrawLine(transform.position, transform.position + (-transform.forward * 50f));
+        canFire = false;
+        Invoke("RefreshExplosive", explosiveFireCooldown);
+    }
+
+    private void RefreshExplosive()
+    {
+        canFire = true;
+    }
 
     //Initialisation
     private void InitialiseStats()
@@ -54,6 +78,7 @@ public class Player : MonoBehaviour
     {
         moveAction = InputSystem.actions.FindAction("Move");
         sprintAction = InputSystem.actions.FindAction("Sprint");
+        fireAction = InputSystem.actions.FindAction("Attack");
     }
     private void GetComponentReferences()
     {
