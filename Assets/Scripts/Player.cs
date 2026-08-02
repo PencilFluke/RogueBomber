@@ -18,6 +18,7 @@ public class Player : MonoBehaviour
     public float rotateSpeed = 600.0f;
     public float sprintSpeedMultiplier = 1.5f;
     public bool isSprinting = false;
+    [Header("Explosive")]
     [SerializeField] private GameObject explosive;
     [SerializeField] private float explosiveFireCooldown = 1f;
     private bool canFire = true;
