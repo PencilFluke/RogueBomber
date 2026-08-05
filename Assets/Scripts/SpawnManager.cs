@@ -2,19 +2,19 @@ using UnityEngine;
 
 public class SpawnManager : MonoBehaviour
 {
-    [SerializeField] private int wave = 1;
-    [SerializeField] private int startingEnemyCount = 1;
+    [SerializeField] static public int wave = 1;
     [SerializeField] private Bounds spawnBounds;
     private bool waveCleared;
     private bool waveStarted = true;
     [SerializeField] private int waveCountdown = 3;
     [SerializeField] private GameObject enemyPrefab;
+    [SerializeField] public float difficultyScale = 1f;
+    [SerializeField] private float difficultyMultiplier = 0.1f;
     GameObject[] enemies;
 
     void Awake()
     {
         spawnBounds = GetComponentInChildren<MeshRenderer>().bounds;
-        Debug.Log(spawnBounds.extents);
         InvokeRepeating("SpawnWave", waveCountdown, 1);
     }
     // Start is called once before the first execution of Update after the MonoBehaviour is created
@@ -33,11 +33,16 @@ public class SpawnManager : MonoBehaviour
         if (isWaveCleared())
         {
             waveStarted = true;
-            int enemyCount = wave + startingEnemyCount;
+            difficultyScale *= 1 + difficultyMultiplier;
+            int enemyCount = Mathf.Min(Enemy.maxCount, wave);
             for (int i = 1; i < enemyCount; i++)
             {
-                Instantiate(enemyPrefab, GetSpawnPosition(), Quaternion.identity);
+                GameObject enemy = Instantiate(enemyPrefab, GetSpawnPosition(), Quaternion.identity);
+                Enemy enemyScript = enemy.GetComponent<Enemy>();
+                enemyScript.maxHealth *= difficultyScale;
+                enemyScript.drops.ForEach(d => d.amount = Mathf.CeilToInt(difficultyMultiplier * wave * d.amount));
             }
+
 
         }
     }
@@ -45,10 +50,9 @@ public class SpawnManager : MonoBehaviour
     private Vector3 GetSpawnPosition()
     {
         float radius = Mathf.Sqrt(Mathf.Pow(spawnBounds.extents.x, 2f) + Mathf.Pow(spawnBounds.extents.x, 2f));
-        Vector2 randomDirection = new Vector2(Random.Range(0f, 1f), Random.Range(0f, 1f)).normalized;
+        Vector2 randomDirection = new Vector2(Random.Range(-1f, 1f), Random.Range(-1f, 1f)).normalized;
         Vector2 randomPointInRadius = randomDirection * radius;
         Vector3 randomPointInBounds = spawnBounds.ClosestPoint(new Vector3(randomPointInRadius.x, 0f, randomPointInRadius.y));
-        Debug.Log(randomPointInBounds);
         return randomPointInBounds;
     }
 
@@ -62,11 +66,8 @@ public class SpawnManager : MonoBehaviour
             wave++;
         }
         else waveCleared = false;
-
-        Debug.Log("Wave cleared: " + waveCleared);
-        Debug.Log("Wave started: " + waveStarted);
-        Debug.Log("Enemy count: " + enemies.Length);
         return waveCleared;
     }
+
 
 }

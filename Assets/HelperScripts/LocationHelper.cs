@@ -14,4 +14,9 @@ public static class LocationHelper
     {
         return new Vector2(Random.Range(-1f, 1f), Random.Range(-1f, 1f)).normalized;
     }
+
+    static public void OnDrawSphere(Vector3 location)
+    {
+        Gizmos.DrawSphere(location, 0.1f);
+    }
 }

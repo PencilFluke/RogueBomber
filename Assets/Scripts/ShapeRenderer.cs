@@ -6,22 +6,30 @@ public class ShapeRenderer : MonoBehaviour
     private LineRenderer lineRenderer;
     [SerializeField] private int steps;
     public float radius;
-    [SerializeField] private Color color = Color.white;
+    [SerializeField] private Color color = Color.red;
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Awake()
     {
         lineRenderer = GetComponent<LineRenderer>();
-        RenderCircle(steps, radius, true, color);
-    }
-    // Update is called once per frame
-    void Update()
-    {
     }
 
-    public void RenderCircle(int steps, float radius, bool isLoop, Color color)
+    public void RenderCircle(int steps, float radius, bool isLoop, Color color, float alpha)
     {
-        lineRenderer.startColor = color;
-        lineRenderer.endColor = color;
+        GradientColorKey[] colors = new GradientColorKey[2]
+        {
+            new GradientColorKey(color, 0.0f),
+            new GradientColorKey(color, 1.0f)
+        };
+        GradientAlphaKey[] alphas = new GradientAlphaKey[2]
+        {
+            new GradientAlphaKey(alpha, 0.0f),
+            new GradientAlphaKey(alpha, 1.0f)
+        };
+
+        Gradient gradient = new Gradient();
+        gradient.SetKeys(colors, alphas);
+
+        lineRenderer.colorGradient = gradient;
         lineRenderer.loop = isLoop;
         lineRenderer.positionCount = steps;
 

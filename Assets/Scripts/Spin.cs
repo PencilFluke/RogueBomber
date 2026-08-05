@@ -7,7 +7,7 @@ public class Spin : MonoBehaviour
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
-
+        transform.rotation = new Quaternion(transform.rotation.x, Random.Range(0f, 1f), transform.rotation.z, transform.rotation.w);
     }
 
     // Update is called once per frame

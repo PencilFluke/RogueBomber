@@ -8,6 +8,8 @@ TagManager:
   - Enemy
   - Experience
   - Explosive
+  - Collectible
+  - BombMesh
   layers:
   - Default
   - TransparentFX
