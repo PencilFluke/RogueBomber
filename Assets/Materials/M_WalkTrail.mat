@@ -46,7 +46,7 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _BaseTexture:
-        m_Texture: {fileID: 10904, guid: 0000000000000000f000000000000000, type: 0}
+        m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _BumpMap:
@@ -166,7 +166,7 @@ Material:
     - _ZWrite: 0
     m_Colors:
     - White: {r: 1, g: 1, b: 1, a: 1}
-    - _BaseColor: {r: 0.3301887, g: 0.3301887, b: 0.3301887, a: 0.14117648}
+    - _BaseColor: {r: 0.3301886, g: 0.3301886, b: 0.3301886, a: 0.23921569}
     - _CameraFadeParams: {r: 0, g: Infinity, b: 0, a: 0}
     - _Color: {r: 0.19811302, g: 0.19811302, b: 0.19811302, a: 0.54509807}
     - _ColorAddSubDiff: {r: 1, g: 0, b: 0, a: 0}

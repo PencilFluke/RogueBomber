@@ -1,32 +1,34 @@
 using System.Collections.Generic;
 using System.Linq;
+using Unity.VisualScripting;
 using UnityEngine;
 
 public class Explosive : MonoBehaviour
 {
-    [Header("Player Derived Stats")]
+    [Header("Player Affected Stats")]
     [SerializeField] private float baseDamage = 10f;
-    [SerializeField] protected float explosionDelaySeconds = 3f;
+    private float playerModifiedDamage;
     [SerializeField] private float explosionRadius = 2;
-
+    private float playerModifiedRadius;
+    [SerializeField] protected float explosionDelaySeconds = 1f;
+    protected float playerModifiedExplosionDelay;
 
     [Header("Prefab Defining Stats")]
-    [SerializeField] protected bool startOnSpawn;
-    private float explosionForce = 1000f;
-
     [SerializeField] private GameObject explosiveMesh;
-    [SerializeField] private GameObject indicatorPrefab;
+    [SerializeField] private GameObject explosiveFX;
+    [SerializeField] private float explosionForce = 1000f;
+    [SerializeField] protected bool startOnSpawn;
+    [SerializeField] protected AudioClip explodeAudioClip;
+
+    private float startTime;
     private Animator animator;
-    private GameObject radiusRenderer;
-    private GameObject explosionTimeRenderer;
-    [SerializeField] private float flashStartDelay = 0f;
+    private float flashStartDelay = 0f;
     private float maxFlashSpeed = 5f;
     private float animSpeed = 0f;
 
-    [SerializeField]
-    private bool preview = false;
-    [SerializeField] protected AudioClip audioClip;
-    private float startTime;
+    private GameObject circleRenderer;
+    private ShapeRenderer radiusRenderer;
+    private ShapeRenderer explosionTimeRenderer;
 
     public enum ExplosiveType
     {
@@ -37,49 +39,57 @@ public class Explosive : MonoBehaviour
 
     void Awake()
     {
-        radiusRenderer = Instantiate(indicatorPrefab, transform.position, Quaternion.identity);
-        radiusRenderer.GetComponent<ShapeRenderer>().RenderCircle(20, explosionRadius, true, Color.red, 0.2f);
-
-        explosionTimeRenderer = Instantiate(indicatorPrefab, transform.position, Quaternion.identity);
-        explosionTimeRenderer.GetComponent<ShapeRenderer>().RenderCircle(20, explosionRadius, true, Color.orange, 0.2f);
+        ApplyModifiers();
+        circleRenderer = Resources.Load<GameObject>("Prefabs/CircleRenderer");
+        radiusRenderer = Instantiate(circleRenderer, transform.position, Quaternion.identity).GetComponent<ShapeRenderer>();
+        explosionTimeRenderer = Instantiate(circleRenderer, transform.position, Quaternion.identity).GetComponent<ShapeRenderer>();
+        radiusRenderer.RenderCircle(20, playerModifiedRadius, true, Color.red, 0.2f);
+        explosionTimeRenderer.RenderCircle(20, playerModifiedRadius, true, Color.orange, 0.2f);
         animator = GetComponent<Animator>();
     }
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
-        if (startOnSpawn && !preview)
+        if (startOnSpawn)
         {
             startTime = Time.time;
             explosionTimeRenderer.transform.localScale = Vector3.zero;
-            Invoke("Explode", explosionDelaySeconds);
-            InvokeRepeating("UpdateAnimationSpeed", flashStartDelay, explosionDelaySeconds / maxFlashSpeed);
+            Invoke("Explode", playerModifiedExplosionDelay);
+            InvokeRepeating("UpdateAnimationSpeed", flashStartDelay, playerModifiedExplosionDelay / maxFlashSpeed);
         }
     }
 
     // Update is called once per frame
     void LateUpdate()
     {
+        SetIndicators();
+    }
+
+    private void SetIndicators()
+    {
         radiusRenderer.transform.position = transform.position;
         radiusRenderer.transform.localScale = transform.localScale;
 
         explosionTimeRenderer.transform.position = transform.position;
-        Vector3 explosionTimeSize = Vector3.one * ((Time.time - startTime) / explosionDelaySeconds);
+        Vector3 explosionTimeSize = Vector3.one * ((Time.time - startTime) / playerModifiedExplosionDelay);
         explosionTimeRenderer.transform.localScale = explosionTimeSize * transform.localScale.x;
     }
 
     protected virtual void Explode()
     {
         float scaleMultiplier = transform.localScale.x;
-        IEnumerable<Collider> enemies = Physics.OverlapSphere(transform.position, explosionRadius * scaleMultiplier)
+
+        IEnumerable<Collider> enemies = Physics.OverlapSphere(transform.position, playerModifiedRadius * scaleMultiplier)
         .Where((c) => c.gameObject.CompareTag("Enemy") || c.gameObject.CompareTag("Player"));
+
         foreach (Collider collider in enemies)
         {
             float distanceToExplosive = (transform.position - collider.gameObject.transform.position).magnitude;
-            float damageModifier = 1f - (Mathf.Clamp(distanceToExplosive, 0f, explosionRadius) / explosionRadius);
-            float finalDamage = baseDamage * scaleMultiplier * damageModifier;
+            float damageModifier = 1f - (Mathf.Clamp(distanceToExplosive, 0f, playerModifiedRadius) / playerModifiedRadius);
+            float finalDamage = playerModifiedDamage * scaleMultiplier * damageModifier;
 
-            if (finalDamage > baseDamage * 0.05f)
+            if (finalDamage > playerModifiedDamage * 0.05f)
             {
                 if (collider.gameObject.tag == "Enemy")
                 {
@@ -89,26 +99,16 @@ public class Explosive : MonoBehaviour
                 {
                     collider.GetComponent<Player>().TakeDamage(finalDamage);
                 }
-                collider.GetComponent<Rigidbody>().AddExplosionForce(explosionForce, transform.position, explosionRadius * scaleMultiplier, explosionForce / 2f, ForceMode.Impulse);
+                collider.GetComponent<Rigidbody>().AddExplosionForce(explosionForce, transform.position, playerModifiedRadius * scaleMultiplier, explosionForce / 2f, ForceMode.Impulse);
             }
 
         }
 
-        AudioSource.PlayClipAtPoint(audioClip, transform.position, transform.localScale.magnitude * 2f);
-        animator.SetBool("explode", true);
-
-        HideMainElements();
-        Invoke("DestroyBomb", 1f);
+        Instantiate(explosiveFX, transform.position, Quaternion.identity).transform.localScale = transform.localScale;
+        DestroyInstance();
     }
 
-    void HideMainElements()
-    {
-        explosiveMesh.SetActive(false);
-        radiusRenderer.SetActive(false);
-        explosionTimeRenderer.SetActive(false);
-    }
-
-    void DestroyBomb()
+    void DestroyInstance()
     {
         Destroy(gameObject);
         Destroy(radiusRenderer.gameObject);
@@ -119,6 +119,13 @@ public class Explosive : MonoBehaviour
     {
         animator.SetFloat("speed_f", animSpeed);
         animSpeed++;
+    }
+
+    public virtual void ApplyModifiers()
+    {
+        playerModifiedDamage = baseDamage * Player.baseDamageMultiplier;
+        playerModifiedRadius = explosionRadius * Player.explosionRadiusMultiplier;
+        playerModifiedExplosionDelay = explosionDelaySeconds * Player.explosionDelaySecondsMultiplier;
     }
 
 }

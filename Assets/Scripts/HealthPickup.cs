@@ -5,9 +5,9 @@ public class HealthPickup : Pickup
 {
     protected float healAmount = 10f;
 
-    void Awake()
+    protected override void ConfigurePickupEvent()
     {
-        player = GameObject.FindWithTag("Player");
+        base.ConfigurePickupEvent();
         pickupEvent.AddListener(() => player.GetComponent<Player>().Heal(healAmount));
     }
 }

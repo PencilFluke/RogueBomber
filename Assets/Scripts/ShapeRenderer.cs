@@ -4,9 +4,6 @@ using UnityEngine;
 public class ShapeRenderer : MonoBehaviour
 {
     private LineRenderer lineRenderer;
-    [SerializeField] private int steps;
-    public float radius;
-    [SerializeField] private Color color = Color.red;
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Awake()
     {
