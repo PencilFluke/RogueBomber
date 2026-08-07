@@ -10,6 +10,7 @@ TagManager:
   - Explosive
   - Collectible
   - BombMesh
+  - Money
   layers:
   - Default
   - TransparentFX

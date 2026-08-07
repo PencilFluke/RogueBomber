@@ -52,13 +52,13 @@ public class SpawnManager : MonoBehaviour
         float radius = Mathf.Sqrt(Mathf.Pow(spawnBounds.extents.x, 2f) + Mathf.Pow(spawnBounds.extents.x, 2f));
         Vector2 randomDirection = new Vector2(Random.Range(-1f, 1f), Random.Range(-1f, 1f)).normalized;
         Vector2 randomPointInRadius = randomDirection * radius;
-        Vector3 randomPointInBounds = spawnBounds.ClosestPoint(new Vector3(randomPointInRadius.x, 0f, randomPointInRadius.y));
+        Vector3 randomPointInBounds = spawnBounds.ClosestPoint(new Vector3(randomPointInRadius.x, 1f, randomPointInRadius.y));
         return randomPointInBounds;
     }
 
     private bool isWaveCleared()
     {
-        GameObject[] enemies = GameObject.FindGameObjectsWithTag("Enemy");
+        GameObject[] enemies = GameObject.FindGameObjectsWithTag(Tags.ENEMY);
 
         if (enemies.Length == 0 && waveStarted)
         {

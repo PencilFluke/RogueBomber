@@ -2,21 +2,22 @@ using UnityEngine;
 
 public class FX_BombExplode : MonoBehaviour
 {
-    private AudioSource audio;
-    private Animator animator;
+    private AudioSource audioSource;
     private Light pointLight;
     void Awake()
     {
-        audio = GetComponent<AudioSource>();
-        animator = GetComponent<Animator>();
+        audioSource = GetComponent<AudioSource>();
         pointLight = GetComponentInChildren<Light>();
     }
     void Start()
     {
-        audio.PlayOneShot(audio.clip, Mathf.Min(transform.localScale.magnitude, 1f));
-        Debug.Log("Volume: " + Mathf.Min(transform.localScale.magnitude, 1f));
-        pointLight.range = pointLight.range * gameObject.GetComponentInParent<Transform>().localScale.magnitude;
-        Invoke("DestroyOnComplete", audio.clip.length);
+        audioSource.volume = transform.root.localScale.x;
+        pointLight.range = pointLight.range * transform.root.localScale.x;
+    }
+    void PlayExplosiveFlash()
+    {
+        audioSource.Play();
+        Invoke("DestroyOnComplete", audioSource.clip.length);
     }
 
     void DestroyOnComplete()

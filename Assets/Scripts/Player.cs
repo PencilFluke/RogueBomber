@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Unity.VisualScripting;
@@ -47,6 +48,8 @@ public class Player : MonoBehaviour
     private bool isVulnerable = true;
     private bool _isDead = false;
     public bool IsDead { get; }
+
+    private Vector3 lastLookDirection;
     #endregion
 
     #region Explosive
@@ -54,20 +57,19 @@ public class Player : MonoBehaviour
     [SerializeField] private GameObject explosive;
     private float minExplosiveSize = 0.2f;
     [SerializeField] private float explosiveReloadCooldown = 1f;
-    private float explodeTime = 3f;
     private float currentCharge = 0f;
     private float maxChargeTime = 0.5f;
     private GameObject explosiveInstance;
-    private bool canHold = true;
+    private bool reloadInProgress;
     #endregion
 
     private GameObject previewMesh;
     private List<GameObject> explosivePreviewAmmo = new List<GameObject>();
-    private Vector3 ammoPreviewPosition = Vector3.up * 2f;
+    [SerializeField] private Transform ammoPreviewPosition;
     [Header("Explosive modifiers")]
-    static public float baseDamageMultiplier = 2f;
-    static public float explosionRadiusMultiplier = 2f;
-    static public float explosionDelaySecondsMultiplier = 2f;
+    static public float baseDamageMultiplier = 1f;
+    static public float explosionRadiusMultiplier = 1f;
+    static public float explosionDelaySecondsMultiplier = 1f;
 
 
     [Header("Constraints")]
@@ -77,9 +79,16 @@ public class Player : MonoBehaviour
     #region Components
     private Rigidbody playerRigidBody;
     private SphereCollider pickupCollider;
-    private Animator animator;
+    [SerializeField] private Animator healthAnimator;
+    [SerializeField] private Animator animator;
     private AudioSource audioSource;
+    [SerializeField] private AudioClip ammoReloadAudio;
     #endregion
+
+    private readonly int speed_f = Animator.StringToHash("speed_f");
+    private readonly int isWalking_b = Animator.StringToHash("isWalking_b");
+    private readonly int isRunning_b = Animator.StringToHash("isRunning_b");
+    private readonly int health_f = Animator.StringToHash("health_f");
 
     #region Initialisation
     void Awake()
@@ -91,39 +100,32 @@ public class Player : MonoBehaviour
 
     private void OnEnable()
     {
-        actions.FindActionMap("Player").Enable();
+        actions.FindActionMap(Tags.PLAYER).Enable();
     }
 
     private void OnDisable()
     {
-        actions.FindActionMap("Player").Disable();
+        actions.FindActionMap(Tags.PLAYER).Disable();
     }
     void Start()
     {
-        previewMesh = Resources.Load("prefabs/BombMesh").ConvertTo<GameObject>();
-        InvokeRepeating("ReloadExplosive", 0f, explosiveReloadCooldown);
+        previewMesh = Resources.Load<GameObject>("prefabs/BombMesh");
+        StartCoroutine(ReloadExplosive());
     }
     #endregion
     void FixedUpdate()
     {
         if (canMove) Move();
 
-        if (explosiveInstance && canHold) ChargeExplosive();
-
-        if (!fireAction.IsPressed())
-        {
-            currentCharge = 0;
-            canHold = false;
-        }
+        if (explosiveInstance) ChargeExplosive();
     }
-    //Stats
     #region Health
     public void Heal(float healAmount)
     {
         if (Health == maxHealth) return;
         else if (maxHealth - Health <= healAmount) Health = maxHealth;
         else if (maxHealth - Health > healAmount) Health += healAmount;
-        animator.SetFloat("health_f", 1 - (Health / maxHealth));
+        healthAnimator.SetFloat(health_f, 1 - (Health / maxHealth));
     }
     public void TakeDamage(float damage)
     {
@@ -132,7 +134,7 @@ public class Player : MonoBehaviour
             Health -= damage;
             isVulnerable = false;
             Invoke("MakeVulnerable", invulnerabilityTime);
-            animator.SetFloat("health_f", 1 - (Health / maxHealth));
+            healthAnimator.SetFloat(health_f, 1 - (Health / maxHealth));
             audioSource.PlayOneShot(audioSource.clip);
         }
         else if (isVulnerable && Health <= damage)
@@ -153,8 +155,11 @@ public class Player : MonoBehaviour
     #region Movement
     private void Move()
     {
-        playerRigidBody.AddForce(GetDirection() * moveSpeed * sprintSpeedMultiplier);
-        transform.forward = Vector3.Slerp(transform.forward, GetDirection().normalized, Time.deltaTime * rotateSpeed);
+        Vector3 direction = GetDirection();
+        animator.SetFloat(speed_f, direction.magnitude);
+        playerRigidBody.AddForce(direction * moveSpeed * sprintSpeedMultiplier);
+        lastLookDirection = direction.magnitude == 0f ? lastLookDirection : direction;
+        transform.forward = Vector3.Slerp(transform.forward, direction.normalized, Time.deltaTime * rotateSpeed);
         ConstrainPositionToXZBounds(transform.position, screenBoundsX, screenBoundsZ);
     }
     private Vector3 GetDirection()
@@ -168,18 +173,23 @@ public class Player : MonoBehaviour
     private void StartMove(InputAction.CallbackContext context)
     {
         canMove = true;
+        animator.SetBool(isWalking_b, true);
     }
     private void StopMove(InputAction.CallbackContext context)
     {
         canMove = false;
+        animator.SetBool(isWalking_b, false);
+        animator.SetFloat(speed_f, Vector3.zero.magnitude);
     }
     private void StartSprint(InputAction.CallbackContext context)
     {
         playerRigidBody.maxLinearVelocity = maxVelocity * sprintSpeedMultiplier;
+        animator.SetBool(isRunning_b, true);
     }
     private void StopSprint(InputAction.CallbackContext context)
     {
         playerRigidBody.maxLinearVelocity = maxVelocity;
+        animator.SetBool(isRunning_b, false);
     }
     #endregion
     #region Explosive
@@ -188,17 +198,13 @@ public class Player : MonoBehaviour
         if (explosivePreviewAmmo.Count > 0)
         {
             SpawnExplosive();
+            if (!reloadInProgress) StartCoroutine(ReloadExplosive());
             RemoveAmmo();
         }
     }
-    private void HoldFire(InputAction.CallbackContext context)
-    {
-        canHold = context.performed;
-
-    }
     private void StopFire(InputAction.CallbackContext context)
     {
-        canHold = !context.canceled && !context.performed;
+        currentCharge = 0;
         explosiveInstance = null;
     }
     private void SpawnExplosive()
@@ -213,16 +219,15 @@ public class Player : MonoBehaviour
         Vector3 holdPosition = (-transform.forward * 1f) + Vector3.up;
         explosiveInstance.transform.position = transform.position + holdPosition;
         currentCharge += Time.deltaTime / maxChargeTime;
-        explosiveInstance.transform.localScale = Vector3.Lerp(Vector3.one * minExplosiveSize, Vector3.one, currentCharge / explodeTime);
+        explosiveInstance.transform.localScale = Vector3.Lerp(Vector3.one * minExplosiveSize, Vector3.one, currentCharge);
     }
     #endregion
     #region Ammo
     private void AddAmmo()
     {
-        if (explosivePreviewAmmo.Count >= maxAmmo)
-            return;
-        explosivePreviewAmmo.Add(Instantiate(previewMesh, gameObject.transform));
-        SetAmmoPositions();
+        explosivePreviewAmmo.Add(Instantiate(previewMesh, ammoPreviewPosition.transform));
+        SetEachAmmoPositions();
+        AudioSource.PlayClipAtPoint(ammoReloadAudio, transform.root.position);
     }
     private void RemoveAmmo()
     {
@@ -239,16 +244,23 @@ public class Player : MonoBehaviour
             AddAmmo();
         }
     }
-    private void ReloadExplosive()
+    private IEnumerator ReloadExplosive()
     {
-        AddAmmo();
+        yield return new WaitForSeconds(explosiveReloadCooldown);
+        if (explosivePreviewAmmo.Count < maxAmmo)
+        {
+            reloadInProgress = true;
+            AddAmmo();
+            StartCoroutine("ReloadExplosive");
+        }
+        else if (explosivePreviewAmmo.Count >= maxAmmo) reloadInProgress = false;
     }
-    private void SetAmmoPositions()
+    private void SetEachAmmoPositions()
     {
         for (int i = 0; i < explosivePreviewAmmo.Count; i++)
         {
-            float height = explosivePreviewAmmo[i].GetComponent<Collider>().bounds.extents.y;
-            explosivePreviewAmmo[i].transform.localPosition = ammoPreviewPosition + Vector3.up * (height * i);
+            float height = explosivePreviewAmmo[i].GetComponent<Collider>().bounds.extents.y * 2f;
+            explosivePreviewAmmo[i].transform.localPosition = new Vector3(0, height * i, 0);
         }
     }
     #endregion
@@ -277,7 +289,6 @@ public class Player : MonoBehaviour
     {
         playerRigidBody = GetComponent<Rigidbody>();
         pickupCollider = GetComponent<SphereCollider>();
-        animator = GetComponentInChildren<Animator>();
         audioSource = GetComponent<AudioSource>();
     }
     private void InitialiseStats()
@@ -286,12 +297,13 @@ public class Player : MonoBehaviour
         Stamina = maxStamina;
         playerRigidBody.maxLinearVelocity = maxVelocity;
         pickupCollider.radius = PickupRadius;
+        lastLookDirection = transform.forward;
     }
     private void InitialiseInput()
     {
-        moveAction = actions.FindAction("Move");
-        sprintAction = actions.FindAction("Sprint");
-        fireAction = actions.FindAction("Attack");
+        moveAction = actions.FindAction("Move", true);
+        sprintAction = actions.FindAction("Sprint", true);
+        fireAction = actions.FindAction("Attack", true);
 
         moveAction.started += StartMove;
         moveAction.canceled += StopMove;
@@ -300,7 +312,6 @@ public class Player : MonoBehaviour
         sprintAction.canceled += StopSprint;
 
         fireAction.started += StartFire;
-        fireAction.performed += HoldFire;
         fireAction.canceled += StopFire;
     }
     #endregion

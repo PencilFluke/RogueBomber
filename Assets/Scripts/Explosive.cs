@@ -18,14 +18,11 @@ public class Explosive : MonoBehaviour
     [SerializeField] private GameObject explosiveFX;
     [SerializeField] private float explosionForce = 1000f;
     [SerializeField] protected bool startOnSpawn;
-    [SerializeField] protected AudioClip explodeAudioClip;
+    private AudioSource audioSource;
 
     private float startTime;
+    private float endTime;
     private Animator animator;
-    private float flashStartDelay = 0f;
-    private float maxFlashSpeed = 5f;
-    private float animSpeed = 0f;
-
     private GameObject circleRenderer;
     private ShapeRenderer radiusRenderer;
     private ShapeRenderer explosionTimeRenderer;
@@ -46,6 +43,9 @@ public class Explosive : MonoBehaviour
         radiusRenderer.RenderCircle(20, playerModifiedRadius, true, Color.red, 0.2f);
         explosionTimeRenderer.RenderCircle(20, playerModifiedRadius, true, Color.orange, 0.2f);
         animator = GetComponent<Animator>();
+        audioSource = GetComponent<AudioSource>();
+        float scaleVariation = Random.Range(0.8f, 1.2f);
+        transform.localScale = Vector3.one * scaleVariation;
     }
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
@@ -53,10 +53,10 @@ public class Explosive : MonoBehaviour
     {
         if (startOnSpawn)
         {
-            startTime = Time.time;
             explosionTimeRenderer.transform.localScale = Vector3.zero;
             Invoke("Explode", playerModifiedExplosionDelay);
-            InvokeRepeating("UpdateAnimationSpeed", flashStartDelay, playerModifiedExplosionDelay / maxFlashSpeed);
+            Debug.Log("Delay: " + playerModifiedExplosionDelay);
+            InitiateExplosiveFlash();
         }
     }
 
@@ -81,7 +81,7 @@ public class Explosive : MonoBehaviour
         float scaleMultiplier = transform.localScale.x;
 
         IEnumerable<Collider> enemies = Physics.OverlapSphere(transform.position, playerModifiedRadius * scaleMultiplier)
-        .Where((c) => c.gameObject.CompareTag("Enemy") || c.gameObject.CompareTag("Player"));
+        .Where((c) => c.gameObject.CompareTag(Tags.ENEMY) || c.gameObject.CompareTag(Tags.PLAYER));
 
         foreach (Collider collider in enemies)
         {
@@ -91,11 +91,11 @@ public class Explosive : MonoBehaviour
 
             if (finalDamage > playerModifiedDamage * 0.05f)
             {
-                if (collider.gameObject.tag == "Enemy")
+                if (collider.gameObject.tag == Tags.ENEMY)
                 {
                     collider.GetComponent<Enemy>().TakeDamage(finalDamage);
                 }
-                if (collider.gameObject.tag == "Player")
+                if (collider.gameObject.tag == Tags.PLAYER)
                 {
                     collider.GetComponent<Player>().TakeDamage(finalDamage);
                 }
@@ -104,7 +104,7 @@ public class Explosive : MonoBehaviour
 
         }
 
-        Instantiate(explosiveFX, transform.position, Quaternion.identity).transform.localScale = transform.localScale;
+        Instantiate(explosiveFX, transform.position, Quaternion.identity).transform.localScale *= transform.localScale.x;
         DestroyInstance();
     }
 
@@ -115,10 +115,21 @@ public class Explosive : MonoBehaviour
         Destroy(explosionTimeRenderer.gameObject);
     }
 
-    private void UpdateAnimationSpeed()
+    void InitiateExplosiveFlash()
     {
-        animator.SetFloat("speed_f", animSpeed);
-        animSpeed++;
+        startTime = Time.time;
+        endTime = Time.time + playerModifiedExplosionDelay;
+        float delay = (endTime - startTime) * 0.3f;
+        Invoke("PlayExplosiveFlash", delay);
+    }
+    private void PlayExplosiveFlash()
+    {
+        if (Time.time > endTime) return;
+
+        if (animator.speed > 0 && audioSource.enabled) audioSource.Play();
+        animator.speed++;
+        float newDelay = (endTime - Time.time) * 0.3f;
+        Invoke("PlayExplosiveFlash", newDelay);
     }
 
     public virtual void ApplyModifiers()

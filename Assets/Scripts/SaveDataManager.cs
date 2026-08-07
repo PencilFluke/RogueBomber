@@ -1,20 +1,29 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 public class SaveDataManager : MonoBehaviour
 {
-    public static SaveDataManager Instance { get; private set; }
-    private SaveData saveData = new SaveData();
+    public MetaProgressData Meta { get; private set; }
 
     [Serializable]
-    public class SaveData
+    public class MetaProgressData
     {
-        public PlayerData playerData;
+        public int saveVersion = 1;
+        public int highestWaveReached;
+        public int currency;
+        public List<UpgradeEntry> upgrades = new List<UpgradeEntry>();
     }
 
-    [Serializable]
-    public class PlayerData
+    public class UpgradeEntry
     {
+        public string upgradeId;
+        public int tier;
+    }
 
+
+    [Serializable]
+    public class RunStateData
+    {
     }
 }
